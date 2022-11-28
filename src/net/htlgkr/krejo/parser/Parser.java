@@ -11,6 +11,8 @@ public class Parser {
     private final CharSequence ENDTAG_OPENER = "</";
 
     Map<String, String> tagsWithContents = new TreeMap<>();
+    Deque<String> tags = new ArrayDeque<>();
+    Deque<String> contents = new ArrayDeque<>();
 
 
     private final String filename;
@@ -35,7 +37,10 @@ public class Parser {
 
         for (int i = 0; s.hasNext(); i++) {
             String line = s.nextLine();
-            System.out.println(findOpeningTag(line, 0));
+            findOpeningTag(line);
+        }
+        for (String tagAndContent : tagsWithContents.values()) {
+            System.out.println(tagAndContent);
         }
 
 
@@ -44,19 +49,57 @@ public class Parser {
 
     }
 
-    public String findOpeningTag(String line, int depth) {
-        StringBuilder temp = new StringBuilder();
+    public String findOpeningTag(String line) {
+        StringBuilder content = new StringBuilder();
 
-        String openingTag;
+
+        String openingTag = "";
         String closingTag;
 
         for (int i = 0; i < line.length(); i++) {
-            
+            String tempTag = "";
+            if (line.charAt(i) == TAG_OPENER.charAt(0)) {
+                contents.push(content.toString());
+                content = new StringBuilder();
+                try {
+                    int j;
+                    for (j = i; j < line.length() && line.charAt(j) != TAG_CLOSER.charAt(0); j++, i++) {
+                        tempTag += line.charAt(j);
+                    }
+                    tempTag += ">";
+                    //sus
+                    if (j >= line.length()) {
+                        throw new Exception();
+                    }
+                } catch (Exception e) {
+                    System.err.println("NO TAG CLOSER FOUND IN: " + line);
+                    return "FAULTY LINE";
+                }
+                if (tempTag.charAt(1) == '/') {
+                    if (tags.peek() != null && createClosingTag(tags.peek()).equals(tempTag)) {
+                        tagsWithContents.put(tagsWithContents.size() + tags.pop(), contents.pop()); //tags.peek() + contents.pop() + tempTag
+                        if (tagsWithContents.get(tagsWithContents.size()-1) == null){ // .length() <= tempTag.length()*2 - 1
+                            log(tagsWithContents.get(tagsWithContents.size()-1), false);
+                        }
+                    }
+                    //tags is empty or a false tag is there
+                    else {
+                        log(tempTag, true);
+                    }
+                }
+
+                else {
+                    tags.push(tempTag);
+                }
+
+            } else {
+                content.append(line.charAt(i));
+            }
         }
 
 
         //if finished and there are no more tags in the line
-        return
+        return "TEST";
     }
 
 
@@ -64,9 +107,9 @@ public class Parser {
         return openingTag.replace(TAG_OPENER, ENDTAG_OPENER);
     }
 
-    private void log(String tagName, boolean isEmpty) {
-        String message = isEmpty ? ">> Empty at Tag: " + tagName + System.currentTimeMillis()
-                : "!!Error at Tag: " + tagName + System.currentTimeMillis();
+    private void log(String tagName, boolean isFaulty) {
+        String message = isFaulty ? "!!Error at Tag: " + tagName + " at " + System.currentTimeMillis()
+                : ">> Empty Tag: " + tagName + " at " +  System.currentTimeMillis();
         logList.add(message);
         System.out.println(message);
     }
